@@ -1,0 +1,64 @@
+# Android Studio / IntelliJ
+*.iml
+.idea/*
+!.idea/codeStyles/
+!.idea/codeStyles/**
+!.idea/runConfigurations/
+!.idea/runConfigurations/**
+
+# Gradle / Kotlin
+.gradle/
+.kotlin/
+build/
+*/build/
+
+# Local machine configuration
+local.properties
+*.local
+
+# Android build outputs
+captures/
+.externalNativeBuild/
+.cxx/
+*.apk
+*.aab
+*.ap_
+*.dex
+*.hprof
+
+# Signing keys and release credentials
+*.jks
+*.keystore
+*.p12
+*.pfx
+*.pem
+*.key
+*.cer
+*.crt
+keystore.properties
+signing.properties
+release.properties
+play-account.json
+service-account.json
+
+# Firebase / Google service credentials
+google-services.json
+**/google-services.json
+firebase-adminsdk*.json
+firebase-service-account*.json
+google-service-account*.json
+credentials.json
+client_secret*.json
+
+# Environment files
+.env
+.env.*
+!.env.example
+secrets.properties
+secrets.*
+
+# Logs and OS files
+*.log
+logs/
+.DS_Store
+Thumbs.db
