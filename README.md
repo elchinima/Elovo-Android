@@ -16,6 +16,15 @@ Elovo Android is the mobile companion app for Elovo Chat. It wraps the hosted El
 
 Production web client: [elovo-app.onrender.com](https://elovo-app.onrender.com/)
 
+## Installation 📲
+
+Elovo can only be downloaded on an Android device running Android 8.1 or newer.
+
+1. Open the Elovo testing group: [groups.google.com/g/elovo](https://groups.google.com/g/elovo).
+2. Join the Elovo group.
+3. After joining the group, open the app page in Google Play: [play.google.com/store/apps/details?id=com.elsim.elovo](https://play.google.com/store/apps/details?id=com.elsim.elovo).
+4. Install the app from Google Play on your Android device.
+
 ## Features 🚀
 
 - Native Android WebView shell for the Elovo Chat web experience.
