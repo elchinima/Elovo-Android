@@ -9,10 +9,10 @@ android {
 
     defaultConfig {
         applicationId = "com.elsim.elovo"
-        minSdk = 27
+        minSdk = 28
         targetSdk = 36
-        versionCode = 16
-        versionName = "0.16"
+        versionCode = 17
+        versionName = "0.17"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

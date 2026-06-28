@@ -18,7 +18,7 @@ Production web client: [elovo-app.onrender.com](https://elovo-app.onrender.com/)
 
 ## Installation 📲
 
-Elovo can only be downloaded on an Android device running Android 8.1 or newer.
+Elovo can only be downloaded on an Android device running Android 9.0 (API level 28) or newer.
 
 1. Open the Elovo testing group: [groups.google.com/g/elovo](https://groups.google.com/g/elovo).
 2. Join the Elovo group.
