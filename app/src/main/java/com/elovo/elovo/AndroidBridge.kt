@@ -16,6 +16,7 @@ import java.net.HttpURLConnection
 import java.net.URL
 import android.Manifest
 import android.net.Uri
+import android.content.Intent
 
 class AndroidBridge(private val context: Context) {
 
@@ -261,5 +262,103 @@ class AndroidBridge(private val context: Context) {
             .edit()
             .putBoolean("logged_out", true)
             .apply()
+    }
+
+    private var uploadWakeLock: android.os.PowerManager.WakeLock? = null
+
+    @JavascriptInterface
+    fun startUploadWakeLock() {
+        (context as? MainActivity)?.runOnUiThread {
+            try {
+                if (uploadWakeLock == null) {
+                    val pm = context.getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
+                    uploadWakeLock = pm.newWakeLock(android.os.PowerManager.PARTIAL_WAKE_LOCK, "elovo:upload_wakelock")
+                }
+                if (uploadWakeLock?.isHeld == false) {
+                    uploadWakeLock?.acquire(10 * 60 * 1000L)
+                    Log.d("WAKELOCK", "Upload WakeLock acquired")
+                }
+            } catch (e: Exception) {
+                Log.e("WAKELOCK", "Error acquiring WakeLock: ${e.message}")
+            }
+        }
+    }
+
+    @JavascriptInterface
+    fun stopUploadWakeLock() {
+        (context as? MainActivity)?.runOnUiThread {
+            try {
+                if (uploadWakeLock?.isHeld == true) {
+                    uploadWakeLock?.release()
+                    Log.d("WAKELOCK", "Upload WakeLock released")
+                }
+            } catch (e: Exception) {
+                Log.e("WAKELOCK", "Error releasing WakeLock: ${e.message}")
+            }
+        }
+    }
+
+    @JavascriptInterface
+    fun startAudioPlayback(title: String) {
+        try {
+            val intent = Intent(context, UploadForegroundService::class.java).apply {
+                action = "START_AUDIO"
+                putExtra("title", title)
+            }
+            androidx.core.content.ContextCompat.startForegroundService(context, intent)
+        } catch (e: Exception) {
+            Log.e("UPLOAD_BRIDGE", "Error starting audio playback service: ${e.message}")
+        }
+    }
+
+    @JavascriptInterface
+    fun stopAudioPlayback() {
+        try {
+            val intent = Intent(context, UploadForegroundService::class.java).apply {
+                action = "STOP_AUDIO"
+            }
+            context.startService(intent)
+        } catch (e: Exception) {
+            Log.e("UPLOAD_BRIDGE", "Error stopping audio playback service: ${e.message}")
+        }
+    }
+
+    @JavascriptInterface
+    fun startUploadNotification(fileName: String) {
+        try {
+            val intent = Intent(context, UploadForegroundService::class.java).apply {
+                action = "START"
+                putExtra("fileName", fileName)
+            }
+            androidx.core.content.ContextCompat.startForegroundService(context, intent)
+        } catch (e: Exception) {
+            Log.e("UPLOAD_BRIDGE", "Error starting upload service: ${e.message}")
+        }
+    }
+
+    @JavascriptInterface
+    fun updateUploadNotification(progress: Int) {
+        try {
+            val intent = Intent(context, UploadForegroundService::class.java).apply {
+                action = "UPDATE"
+                putExtra("progress", progress)
+            }
+            context.startService(intent)
+        } catch (e: Exception) {
+            Log.e("UPLOAD_BRIDGE", "Error updating upload service: ${e.message}")
+        }
+    }
+
+    @JavascriptInterface
+    fun stopUploadNotification(success: Boolean) {
+        try {
+            val intent = Intent(context, UploadForegroundService::class.java).apply {
+                action = "STOP"
+                putExtra("success", success)
+            }
+            context.startService(intent)
+        } catch (e: Exception) {
+            Log.e("UPLOAD_BRIDGE", "Error stopping upload service: ${e.message}")
+        }
     }
 }
