@@ -18,6 +18,14 @@ class UploadForegroundService : Service() {
     private val CHANNEL_ID = "elovo_upload_channel"
     private var currentFileName = ""
     private var mediaSession: MediaSession? = null
+    private var audioDurationMs: Long = 0L
+    private var audioPositionMs: Long = 0L
+    private var isAudioPlaying: Boolean = false
+    private val autoCloseHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private val autoCloseRunnable = Runnable {
+        stopAudioSession()
+        stopSelf()
+    }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -52,12 +60,33 @@ class UploadForegroundService : Service() {
             }
             "START_AUDIO" -> {
                 val title = intent.getStringExtra("title") ?: "Voice message"
+                audioDurationMs = intent.getLongExtra("durationMs", 0L)
+                audioPositionMs = 0L
+                isAudioPlaying = true
                 createNotificationChannel()
                 startAudioSession(title)
+                cancelAutoClose()
             }
             "STOP_AUDIO" -> {
+                cancelAutoClose()
                 stopAudioSession()
                 stopSelf()
+            }
+            "UPDATE_AUDIO_POSITION" -> {
+                audioPositionMs = intent.getLongExtra("positionMs", 0L)
+                audioDurationMs = intent.getLongExtra("durationMs", audioDurationMs)
+                updatePlaybackState()
+            }
+            "UPDATE_AUDIO_STATE" -> {
+                val playing = intent.getBooleanExtra("isPlaying", false)
+                isAudioPlaying = playing
+                updatePlaybackState()
+                updateAudioNotification()
+                if (playing) {
+                    cancelAutoClose()
+                } else {
+                    scheduleAutoClose()
+                }
             }
         }
 
@@ -66,14 +95,25 @@ class UploadForegroundService : Service() {
 
     override fun onTaskRemoved(rootIntent: Intent?) {
         super.onTaskRemoved(rootIntent)
+        cancelAutoClose()
         stopSelf()
     }
 
     override fun onDestroy() {
         super.onDestroy()
+        cancelAutoClose()
         stopAudioSession()
         val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         notificationManager.cancel(NOTIFICATION_ID)
+    }
+
+    private fun scheduleAutoClose() {
+        autoCloseHandler.removeCallbacks(autoCloseRunnable)
+        autoCloseHandler.postDelayed(autoCloseRunnable, 60_000L)
+    }
+
+    private fun cancelAutoClose() {
+        autoCloseHandler.removeCallbacks(autoCloseRunnable)
     }
 
     private fun createNotificationChannel() {
@@ -140,33 +180,95 @@ class UploadForegroundService : Service() {
             .build()
     }
 
+    private fun getContentIntent(): PendingIntent {
+        val intent = Intent(this, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP
+        }
+        return PendingIntent.getActivity(
+            this, 0, intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+    }
+
+    private fun updatePlaybackState() {
+        try {
+            val stateInt = if (isAudioPlaying) PlaybackState.STATE_PLAYING else PlaybackState.STATE_PAUSED
+            val state = PlaybackState.Builder()
+                .setActions(
+                    PlaybackState.ACTION_PLAY or
+                    PlaybackState.ACTION_PAUSE or
+                    PlaybackState.ACTION_PLAY_PAUSE
+                )
+                .setState(stateInt, audioPositionMs, if (isAudioPlaying) 1.0f else 0f)
+                .build()
+            mediaSession?.setPlaybackState(state)
+        } catch (e: Exception) {
+            Log.e("AUDIO_SESSION", "Error updating playback state: ${e.message}")
+        }
+    }
+
+    private fun updateAudioNotification() {
+        try {
+            val displayTitle = getLocalizedText("voice_message")
+
+            val builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                Notification.Builder(this, CHANNEL_ID)
+            } else {
+                @Suppress("DEPRECATION")
+                Notification.Builder(this)
+            }
+
+            builder.setContentTitle(displayTitle)
+                .setContentText("Elovo")
+                .setSmallIcon(R.mipmap.ic_launcher)
+                .setOngoing(isAudioPlaying)
+                .setOnlyAlertOnce(true)
+                .setCategory(Notification.CATEGORY_TRANSPORT)
+                .setContentIntent(getContentIntent())
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                builder.setStyle(Notification.MediaStyle().setMediaSession(mediaSession?.sessionToken))
+            }
+
+            val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            notificationManager.notify(NOTIFICATION_ID, builder.build())
+        } catch (e: Exception) {
+            Log.e("AUDIO_SESSION", "Error updating notification: ${e.message}")
+        }
+    }
+
     private fun startAudioSession(title: String) {
         try {
             if (mediaSession == null) {
                 mediaSession = MediaSession(this, "ElovoAudioSession").apply {
                     setCallback(object : MediaSession.Callback() {
                         override fun onPause() {
-                            super.onPause()
+                            MainActivity.instance?.evaluateJs("window.toggleVoiceFromNative()")
                         }
                         override fun onPlay() {
-                            super.onPlay()
+                            MainActivity.instance?.evaluateJs("window.toggleVoiceFromNative()")
                         }
                     })
                 }
             }
 
-            val state = PlaybackState.Builder()
-                .setActions(PlaybackState.ACTION_PLAY or PlaybackState.ACTION_PAUSE)
-                .setState(PlaybackState.STATE_PLAYING, PlaybackState.PLAYBACK_POSITION_UNKNOWN, 1.0f)
-                .build()
-            mediaSession?.setPlaybackState(state)
+            val stateBuilder = PlaybackState.Builder()
+                .setActions(
+                    PlaybackState.ACTION_PLAY or
+                    PlaybackState.ACTION_PAUSE or
+                    PlaybackState.ACTION_PLAY_PAUSE
+                )
+                .setState(PlaybackState.STATE_PLAYING, audioPositionMs, 1.0f)
+            mediaSession?.setPlaybackState(stateBuilder.build())
 
             val displayTitle = if (title == "Voice message") getLocalizedText("voice_message") else title
-            val metadata = MediaMetadata.Builder()
+            val metadataBuilder = MediaMetadata.Builder()
                 .putString(MediaMetadata.METADATA_KEY_TITLE, displayTitle)
                 .putString(MediaMetadata.METADATA_KEY_ARTIST, "Elovo")
-                .build()
-            mediaSession?.setMetadata(metadata)
+            if (audioDurationMs > 0) {
+                metadataBuilder.putLong(MediaMetadata.METADATA_KEY_DURATION, audioDurationMs)
+            }
+            mediaSession?.setMetadata(metadataBuilder.build())
 
             mediaSession?.isActive = true
 
@@ -182,7 +284,8 @@ class UploadForegroundService : Service() {
                 .setSmallIcon(R.mipmap.ic_launcher)
                 .setOngoing(true)
                 .setOnlyAlertOnce(true)
-                .setCategory(Notification.CATEGORY_SERVICE)
+                .setCategory(Notification.CATEGORY_TRANSPORT)
+                .setContentIntent(getContentIntent())
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
                 builder.setStyle(Notification.MediaStyle().setMediaSession(mediaSession?.sessionToken))

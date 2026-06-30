@@ -33,6 +33,10 @@ import com.google.firebase.messaging.FirebaseMessaging
 
 class MainActivity : AppCompatActivity() {
 
+    companion object {
+        var instance: MainActivity? = null
+    }
+
     private lateinit var webView: WebView
     private lateinit var splashView: View
     private lateinit var frameLayout: FrameLayout
@@ -78,6 +82,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        instance = this
 
         requestPermissions()
         getFCMToken()
@@ -205,6 +210,17 @@ class MainActivity : AppCompatActivity() {
     override fun onPause() {
         super.onPause()
         CookieManager.getInstance().flush()
+    }
+
+    override fun onDestroy() {
+        instance = null
+        super.onDestroy()
+    }
+
+    fun evaluateJs(script: String) {
+        runOnUiThread {
+            webView.evaluateJavascript(script, null)
+        }
     }
 
     override fun onConfigurationChanged(config: Configuration) {
