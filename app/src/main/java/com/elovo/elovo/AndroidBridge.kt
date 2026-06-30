@@ -299,11 +299,12 @@ class AndroidBridge(private val context: Context) {
     }
 
     @JavascriptInterface
-    fun startAudioPlayback(title: String) {
+    fun startAudioPlayback(title: String, durationMs: Long) {
         try {
             val intent = Intent(context, UploadForegroundService::class.java).apply {
                 action = "START_AUDIO"
                 putExtra("title", title)
+                putExtra("durationMs", durationMs)
             }
             androidx.core.content.ContextCompat.startForegroundService(context, intent)
         } catch (e: Exception) {
@@ -320,6 +321,33 @@ class AndroidBridge(private val context: Context) {
             context.startService(intent)
         } catch (e: Exception) {
             Log.e("UPLOAD_BRIDGE", "Error stopping audio playback service: ${e.message}")
+        }
+    }
+
+    @JavascriptInterface
+    fun updateAudioPosition(positionMs: Long, durationMs: Long) {
+        try {
+            val intent = Intent(context, UploadForegroundService::class.java).apply {
+                action = "UPDATE_AUDIO_POSITION"
+                putExtra("positionMs", positionMs)
+                putExtra("durationMs", durationMs)
+            }
+            context.startService(intent)
+        } catch (e: Exception) {
+            Log.e("UPLOAD_BRIDGE", "Error updating audio position: ${e.message}")
+        }
+    }
+
+    @JavascriptInterface
+    fun updateAudioState(isPlaying: Boolean) {
+        try {
+            val intent = Intent(context, UploadForegroundService::class.java).apply {
+                action = "UPDATE_AUDIO_STATE"
+                putExtra("isPlaying", isPlaying)
+            }
+            context.startService(intent)
+        } catch (e: Exception) {
+            Log.e("UPLOAD_BRIDGE", "Error updating audio state: ${e.message}")
         }
     }
 
